@@ -1,0 +1,132 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Plantilla para desplegar la aplicación de monitorización de red con balanceador de carga y escalado automático.
+
+Parameters:
+  InstanceType:
+    Description: Tipo de instancia EC2
+    Type: String
+    Default: t3.micro
+    AllowedValues:
+      - t3.micro
+      - t3.small
+      - t3.medium
+  KeyName:
+    Description: Nombre del par de claves EC2 para acceso SSH
+    Type: AWS::EC2::KeyPair::KeyName
+  VPC:
+    Description: ID del VPC
+    Type: AWS::EC2::VPC::Id
+  Subnets:
+    Description: Lista de subnets en el VPC
+    Type: List<AWS::EC2::Subnet::Id>
+  DBHost:
+    Description: Dirección del host de la base de datos MySQL
+    Type: String
+  DBUser:
+    Description: Usuario de la base de datos MySQL
+    Type: String
+  DBPassword:
+    Description: Contraseña de la base de datos MySQL
+    Type: String
+  DBName:
+    Description: Nombre de la base de datos MySQL
+    Type: String
+
+Resources:
+  NetworkMonitoringSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Seguridad para la aplicación de monitorización de red
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: NetworkMonitoringALB
+      Subnets: !Ref Subnets
+      SecurityGroups:
+        - !Ref NetworkMonitoringSecurityGroup
+      Scheme: internet-facing
+
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ALBTargetGroup
+
+  ALBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VPC
+      Port: 80
+      Protocol: HTTP
+      HealthCheckProtocol: HTTP
+      HealthCheckPort: 80
+      HealthCheckPath: /
+      TargetType: instance
+
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: NetworkMonitoringLaunchTemplate
+      LaunchTemplateData:
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyName
+        SecurityGroupIds:
+          - !Ref NetworkMonitoringSecurityGroup
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            yum update -y
+            yum install -y nodejs npm git
+            cd /home/ec2-user
+            git clone https://github.com/TrianaSolerMartin/network-monitor.git
+            cd network-monitor
+            npm install
+            echo "PORT=3000" > .env
+            echo "DB_HOST=${DBHost}" >> .env
+            echo "DB_USER=${DBUser}" >> .env
+            echo "DB_PASS=${DBPassword}" >> .env
+            echo "DB_NAME=${DBName}" >> .env
+            node server.js
+
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier: !Ref Subnets
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: 1
+      MinSize: 2
+      MaxSize: 4
+      DesiredCapacity: 2
+      TargetGroupARNs:
+        - !Ref ALBTargetGroup
+
+  ScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: 50.0
+
+Outputs:
+  LoadBalancerDNSName:
+    Description: DNS Name del Load Balancer
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
