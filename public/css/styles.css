@@ -1,0 +1,91 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    line-height: 1.6;
+    padding: 20px;
+    background-color: #f4f4f4;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+#server-status {
+    list-style: none;
+    margin: 20px 0;
+}
+
+.server-item {
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.active {
+    background-color: #90EE90;
+}
+
+.inactive {
+    background-color: #FFB6C1;
+}
+
+#charts {
+    margin: 20px 0;
+    padding: 20px;
+    background: white;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+#host-config {
+    margin: 20px 0;
+}
+
+form {
+    display: flex;
+    gap: 10px;
+}
+
+input {
+    padding: 10px;
+    flex: 1;
+}
+
+button {
+    padding: 10px 20px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+#refresh-btn {
+    transition: transform 1s ease;
+    padding: 8px 16px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.filter-btn {
+    transition: background-color 0.3s ease;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    background: #f0f0f0;
+}
+
+.filter-btn.active {
+    background: #007bff;
+    color: white;
+}
